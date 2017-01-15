@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>画布</title>
+	<script src="js/jquery.js"></script>
+	<script src="js/shape.js"></script>
+	<link rel="stylesheet" href="font/iconfont.css">
+	<script>
+		window.onload=function(){
+			
+			/*选项卡*/
+			$(".file>span").click(function(){
+				$(this).next().toggle();
+			})
+			$(".tuxiang>span").click(function(){
+				$(this).next().toggle();
+			})
+			/*画图*/
+			var canvas=document.getElementsByTagName('canvas')[0];  //获取画布
+			var copy=document.getElementsByClassName("copy")[0];
+			var xp=document.getElementsByClassName("xp")[0];
+			var select=document.getElementsByClassName("select")[0];
+			var cobj=canvas.getContext("2d");//存储2D
+			var canvasObj=new shape(copy,canvas,cobj,xp,select);
+			// var picture=new picture(cobj);
+			/*工具*/
+			var i=1;
+			$(".gj-list>li").click(function(){
+		        if($(this).attr("data-role")=="pen"){
+		        	$("body").css("cursor","default");
+		            canvasObj.pen();
+		        }else if($(this).attr("data-role")=="xp"){
+		        	canvasObj.clear();
+		        }else if($(this).attr("data-role")=="big"){
+		        	i=i+0.1;
+		        	if(i>1.4){
+		        		alert("已经最大");
+		        		i=1.4;
+		        	}
+		        	$("canvas").css({transform:"scale("+i+") translateY("+(i*30)+"px)"})
+		    	}else if($(this).attr("data-role")=="small"){
+		    		i=i-0.1;
+		    		if(i<0.6){
+		    			i=0.6;
+		    		}
+		        	$("canvas").css({transform:"scale("+i+") translateY("+(i*15)+"px)"});
+		        }
+    		})
+
+			/*形状*/
+    		$(".shape-list>li").click(function(){
+		        canvasObj.type=$(this).attr("data-role");
+		   		canvasObj.draw();
+		   		$("body").css("cursor","crosshair");
+    		})
+
+    		/*方式和颜色*/
+
+    		$(".fs-list>li").click(function(){
+    			if($(this).attr("data-role")=="stroke"||$(this).attr("data-role")=="fill"){
+    				canvasObj.style=$(this).attr("data-role");
+		   			// canvasObj.draw();
+    			}
+    		})
+    		$(".fs-list>li>input").change(function(){
+				canvasObj[$(this).attr("data-role")]=$(this).val();
+				if($(this).attr("data-role")=="fillStyle"){
+					canvasObj.style="fill";
+				}else if($(this).attr("data-role")=="strokeStyle"){
+					canvasObj.style="stroke";
+				}
+    		})
+
+    		/*线条宽度*/
+    		$(".kd-list>li").click(function(){
+    		    canvasObj.lineWidth=$(this).attr("data-role");
+        		// canvasObj.draw();
+    		})
+
+    		/*撤销*/
+    		$(".back").click(function(){
+    			if(canvasObj.history.length==0){
+	             	cobj.clearRect(0,0,canvas.width,canvas.height);
+	             	setTimeout(function(){
+	                	alert("不能返回");
+	             	},10)
+         		}else{
+         			// canvasObj.history.pop();
+         			cobj.putImageData(canvasObj.history.pop(),0,0);
+         		}
+    		})
+
+    		/**保存**/
+    		$(".save").click(function(){
+        		if(canvasObj.history.length>0) {
+            		location.href = canvas.toDataURL().replace("image/png","stream/octet");//将文件保存一个路径？？
+        		}
+    		})
+
+    		/*选择*/
+    		$(".btn-select").click(function(){
+    			canvasObj.selects();
+    		})
+    		/*截屏*/
+    		$(".btn-choose").click(function(){
+    			canvasObj.choose();
+    		})
+
+    		/*工具栏*/
+    		$(".close").click(function(){
+    			$(".kit").css("display","none");
+    		})
+    		
+    		/*加载图片*/
+    		var dataobj;
+    		var file=document.querySelector(".file-img");
+    		var img=document.querySelector("img");
+		    file.onchange=function(){
+		        var fileObj=this.files[0];
+		        var reader=new FileReader();
+		        reader.readAsDataURL(fileObj);
+		        reader.onload=function(e){
+		            var event=window.event || e;
+		            img.src= event.target.result;
+		            cobj.drawImage(img,0,0,canvas.width,canvas.height);
+		            dataobj=cobj.getImageData(0,0,canvas.width,canvas.height);
+		        }
+		    }
+
+
+		    $(".tuxiang-list>li").click(function(){
+    			if($(this).attr("data-role")=="msk"){
+    				
+					msk(dataobj,50,0,0);
+				}else if($(this).attr("data-role")=="blur"){
+					
+					blur(dataobj,5,0,0);
+				}else if($(this).attr("data-role")=="fx"){
+					
+					fx(dataobj,0,0);
+				}
+    		})
+
+
+    	function msk(dataobj,num,x,y){
+		var that=this;
+        var width = dataobj.width, height = dataobj.height;
+        var num = num;
+        var w = width / num;
+        var h = height / num;
+        for (var i = 0; i < num; i++) {//行
+            for (var j = 0; j < num; j++) {//列  x
+                var dataObj = cobj.getImageData(j * w, i * h, w, h);
+
+                var r = 0, g = 0, b = 0;
+                for (var k = 0; k < dataObj.width * dataObj.height; k++) {
+                    r += dataObj.data[k * 4 + 0];
+                    g += dataObj.data[k * 4 + 1];
+                    b += dataObj.data[k * 4 + 2];
+                }
+
+                r = parseInt(r / (dataObj.width * dataObj.height));
+                g = parseInt(g / (dataObj.width * dataObj.height));
+                b = parseInt(b / (dataObj.width * dataObj.height));
+
+                for (var k = 0; k < dataObj.width * dataObj.height; k++) {
+                    dataObj.data[k * 4 + 0] = r;
+                    dataObj.data[k * 4 + 1] = g;
+                    dataObj.data[k * 4 + 2] = b;
+                }
+
+
+                cobj.putImageData(dataObj, x + j * w, y+i * h);
+
+            }
+
+        }
+
+    }
+    function blur(dataobj,num,x,y){
+		var that=this;
+        var width = dataobj.width, height = dataobj.height;
+        var arr=[];
+        var num = num;
+        for (var i = 0; i < height; i++) {//行
+            for (var j = 0; j < width; j++) {//列  x
+                var x1=j+num>width?j-num:j;
+                var y1=i+num>height?i-num:i;
+                var dataObj = cobj.getImageData(x1, y1,num, num);
+
+                var r = 0, g = 0, b = 0;
+                for (var k = 0; k < dataObj.width * dataObj.height; k++) {
+                    r += dataObj.data[k * 4 + 0];
+                    g += dataObj.data[k * 4 + 1];
+                    b += dataObj.data[k * 4 + 2];
+                }
+
+                r = parseInt(r / (dataObj.width * dataObj.height));
+                g = parseInt(g / (dataObj.width * dataObj.height));
+                b = parseInt(b / (dataObj.width * dataObj.height));
+                arr.push(r,g,b,255);
+            }
+        }
+        for(var i=0;i<dataobj.data.length;i++){
+            dataobj.data[i]=arr[i]
+        }
+        cobj.putImageData(dataobj,x,y);
+    }
+
+    function fx(dataobj,x,y){
+		var that=this;
+        for(var i=0;i<dataobj.width*dataobj.height;i++){
+            dataobj.data[i*4+0]=255-dataobj.data[i*4+0];
+            dataobj.data[i*4+1]=255-dataobj.data[i*4+1];
+            dataobj.data[i*4+2]=255-dataobj.data[i*4+2];
+            dataobj.data[i*4+3]=255
+        }
+        cobj.putImageData(dataobj,x,y);
+    }
+
+		}
+	</script>
+	<style>
+		body,ul,li,h3{
+			padding: 0;
+			margin:0;
+			list-style: none;
+		}
+		body{
+		  width:100%;
+		  height:665px;
+		  background: -webkit-linear-gradient(top,#C5CFDF 0%,#DAE3F0 100%);
+		  background: -moz-linear-gradient(top,#C5CFDF,#DAE3F0);
+		  background: -o-linear-gradient(top,#C5CFDF,#DAE3F0);
+		  background: linear-gradient(top,#C5CFDF,#DAE3F0);
+		  font-family: "iconfont";
+		}
+		.box{
+			width:1200px;
+			height:625px;
+			margin: 0 auto;
+			border: 1px solid #ccc;
+		}
+		.menu{
+			width: 100%;
+			height:120px;
+		}
+		.nav{
+			width: 100%;
+			height:29px;
+			border-bottom: 1px solid #E2E3E4;
+			background: #fff;
+		}
+		.nav .file,.function,.windows,.tuxiang{
+			width: 100px;
+			height: 100%;
+			/*background:#F5F6F7;*/
+			text-align: center;
+			line-height: 30px;
+			float: left;
+			position:relative;
+			cursor:default;
+		}
+		.nav .function{
+			height:30px;
+			background:#F5F6F7;
+		}
+		.nav .file ul{
+			width: 200px;
+			position: absolute;
+			top:30px;
+			left:0;
+			z-index: 10;
+			background:#fff;
+			display: none;
+			z-index: 999;
+		}
+
+		.img{
+			position: relative;
+		}
+		.img input{
+			width: 100%;
+			height:100%;
+			position: absolute;
+			top:0;
+			left: 0;
+			opacity:0;
+		}
+		.nav .file span{
+			display: inline-block;
+			width: 100%;
+		}
+		.tuxiang .tuxiang-list{
+			position: absolute;
+			top:30px;
+			left:0;
+			width: 100%;
+			background:#fff;
+			z-index: 999;
+			display: none;
+		}
+
+		.nav .function .function-list{
+			position: absolute;
+			top:30px;
+			left: -100px;
+			width: 1200px;
+			height: 90px;
+			background:#F5F6F7;
+			box-shadow: 1px 5px 10px #ccc;
+			z-index: 998;
+		}
+		.function .function-list .gj{
+			width: 20%;
+			height: 100%;
+			float: left;
+			border-right: 1px solid #E2E3E4;
+		}
+		.function .function-list .gj li{
+			width: 50%;
+			/*height: 50%;*/
+			float: left;
+			font-size: 20px;
+		}
+		.function .function-list .shape{
+			width: 30%;
+			height: 100%;
+			float: left;
+			border-right: 1px solid #E2E3E4;
+		}
+		.function .function-list .shape li{
+			width: 33.3333%;
+			float:left;
+			font-size: 20px;
+		}
+		.function .function-list .fs{
+			width: 20%;
+			height: 100%;
+			float: left;
+			border-right: 1px solid #E2E3E4;
+		}
+		.function .function-list .fs li{
+			width: 50%;
+			float: left;
+		}
+		.function .function-list .kd{
+			width: 20%;
+			height: 100%;
+			float: left;
+			border-right: 1px solid #E2E3E4;
+		}
+		.function .function-list .kd li{
+			width:33.3333333%;
+			float: left;
+		}
+		.function .function-list li span{
+			width: 100%;
+			float: left;
+		}
+		.function .function-list .cl{
+			width: 9%;
+			height: 100%;
+			float: left;
+			border-right: 1px solid #E2E3E4;
+		}
+		.function .function-list .cl li{
+			width:100%;
+			float: left;
+		}
+
+			
+
+
+		.main{
+			width: 100%;
+			height:500px;
+		}
+		.main .left{
+			width:10%;
+			height:500px;
+			border-right:1px solid #ccc;
+			float: left;
+			background:#D6D6D6;
+		}
+		.kit{
+			margin: 10px auto;
+			width: 70px;
+			border:1px solid #666;
+			box-shadow: 1px 1px 1px #000;
+			padding: 0 5px;
+		}
+		.kit li{
+			margin-bottom: 5px;
+			cursor:default;
+		}
+		.kit li span{
+			float:right;
+
+		}
+		.close{
+			background:#959595;
+			width:100%;
+			height:15px;
+			text-align:right;
+			line-height:15px;
+			float: right;
+			color: #fff;
+			font-size: 12px;
+			cursor:default;
+		}
+		.main .center{
+			width: 958px;
+			height: 500px;
+			float: left;
+			position: relative;
+		}
+		.main .right{
+			width: 10%;
+			height: 500px;
+			float: left;
+			border-left: 1px solid #ccc;
+			background:#D6D6D6;
+		}
+		canvas{
+			background: #fff;
+			box-shadow:10px 10px 10px #999;
+		}
+		.copy{
+			position: absolute;left:0;top:0;
+    		z-index: 20;
+			width: 100%;
+			height: 100%;
+		}
+		.xp{
+			position: absolute;
+			border: 1px solid #C09791;
+			background:#FA9693;
+			display:none;
+			cursor:url(1.jpg);
+		}
+		.select{
+			position:absolute;top:0;left:0;
+    		border:1px dashed #000;
+    		display: none;
+    		cursor:pointer;
+		}
+		
+	</style>
+</head>
+<body>
+	<div class="box">
+		<div class="menu">
+			<ul class="nav">
+				<li class="file">
+					<span>文件</span>
+					<ul class="file-list">
+						<li class="new">新建</li>
+						<li class="save">保存</li>
+						<li class="back">撤销</li>
+						<li class="img">
+							打开图片
+							<input type="file" class="file-img">
+						</li>
+						<li class="exit">退出</li>
+					</ul>
+				</li>
+				<li class="function">
+					<span>功能</span>
+					<ul class=function-list>
+						<li class="gj">
+							<ul class="gj-list">
+								<li data-role="pen">&#xe62d;</li>
+								<li data-role="xp">&#xe659;</li>
+								<li data-role="big">&#xe621;</li>
+								<li data-role="small">&#xe6d6;</li>
+							</ul>
+							<span>工具</span>
+						</li>
+						<li class="shape">
+							<ul class="shape-list">
+								<li data-role="line">&#xe690;</li>
+								<li data-role="rect">&#xe645;</li>
+								<li data-role="arc">&#xe61a;</li>
+								<li data-role="moreb">&#xe7d1;</li>
+								<li data-role="morej">&#xe623;</li>
+							</ul>
+							<span>形状</span>
+						</li>
+						<li class="fs">
+							<ul class="fs-list">
+								<li data-role="stroke">轮廓&#xe645;</li>
+								<li><input type="color" data-role="strokeStyle"></li>
+								<li data-role="fill">填充&#xe680;</li>
+								<li><input type="color" data-role="fillStyle"></li>
+							</ul>
+							<span>方式和颜色</span>
+						</li>
+						<li class="kd">
+							<ul class="kd-list">
+								<li data-role="1">细&#xe639;</li>
+								<li data-role="5">中&#xe63f;</li>
+								<li data-role="10">粗&#xe6ea;</li>
+								<li>自定义<input type="number" hidden></li>
+							</ul>
+							<span>线条宽度</span>
+						</li>
+						<li class="cl">
+							<ul>
+								<li class="btn-select">选择&#xe68b;</li>
+								<li class="btn-choose">截屏&#xe625;</li>
+							</ul>
+							<span>图形处理</span>
+						</li>
+					</ul>
+				</li>
+				<li class="windows">
+					<span>窗口</span>
+					<ul class="windows-list">
+						<li class="ms">工具栏</li>
+					</ul>
+				</li>
+				<li class="tuxiang">
+					<span>图像</span>
+					<ul class="tuxiang-list">
+						<li class="msk" data-role="msk">马赛克</li>
+						<li class="blur" data-role="blur">高斯模糊</li>
+						<li class="fx" data-role="fx">反向</li>
+					</ul>
+				</li>
+			</ul>
+		</div>
+		<div class="main">
+			<div class="left">
+				<ul class="kit">
+					<li><span class="close">&#xe60e;</span></li>
+					<li><h3>工具栏</h3></li>
+					<li>鼠标<span>&#xe624;</span></li>
+					<li>轮廓<span>&#xe645;</span></li>
+					<li>填充<span>&#xe680;</span></li>
+					<li>铅笔<span>&#xe606;</span></li>
+					<li>橡皮<span>&#xe659;</span></li>
+					<li>放大<span>&#xe621;</span></li>
+					<li>缩小<span>&#xe6d6;</span></li>
+				</ul>
+				
+			</div>
+			<div class="center">
+				<canvas width="958px" height="500px">
+				</canvas>
+				<img src="" alt="" hidden>
+				<div class="copy"></div>
+				<div class="xp"></div>
+				<div class="select"></div>
+				<div class="moveopen">&#xe606;</div>
+			</div>
+			<div class="right"></div>
+		</div>
+	</div>
+</body>
+</html>
